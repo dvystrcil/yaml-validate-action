@@ -14,3 +14,7 @@ rules:
   comments-indentation: disable # folded/literal block scalars indent oddly by design
   braces:
     max-spaces-inside: 1 # `{{ .foo }}`-style Helm/n8n templating
+  indentation:
+    indent-sequences: whatever # kustomization.yaml's flush-left `- foo` lists are valid and common
+  empty-lines:
+    max-end: 1 # a single trailing blank line at EOF is harmless and common
