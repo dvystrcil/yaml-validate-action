@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: x
+data:
+  notes.txt: >
+    # just some comment
+    # more comment text
+    # even more prose here, no config directive follows at all

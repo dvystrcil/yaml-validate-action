@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: x
+data:
+  config.ini: |
+    # this is a literal block, newlines are preserved as-is regardless
+    trustedReverseProxy=uniquelocal

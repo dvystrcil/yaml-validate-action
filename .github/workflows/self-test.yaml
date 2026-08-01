@@ -1,0 +1,56 @@
+name: Self-test
+
+# Unit tests for the fold-swallow detector (real fixtures, including the
+# actual dvystrcil/homelab#820 incident shape) plus an integration smoke
+# test running the action's own steps directly against this repo's real
+# files -- same caution as helm-validate-action's self-test around
+# actions invoking themselves within their own repo.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: python3 -m unittest tests.test_check_fold_swallowed -v
+
+  integration-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: yamllint against this repo's own fixtures + config
+        run: |
+          set -euo pipefail
+          pip install --quiet yamllint
+          # good.yaml fixtures must yamllint-clean; bad_swallowed_directive.yaml
+          # is deliberately a bit odd-shaped (single-key ConfigMap test fixture)
+          # so only assert against the two guaranteed-clean ones.
+          yamllint -c .yamllint-default.yaml \
+            tests/fixtures/good_blank_line_separated.yaml \
+            tests/fixtures/literal_scalar_unaffected.yaml
+          echo "OK: yamllint step runs clean on known-good fixtures"
+
+      - name: fold-swallow check must fail on the bad fixture
+        run: |
+          set -euo pipefail
+          if python3 bin/check_fold_swallowed.py tests/fixtures/bad_swallowed_directive.yaml; then
+            echo "::error::expected the fold-swallow check to fail on the incident-shaped fixture"
+            exit 1
+          fi
+          echo "OK: correctly failed on the swallowed-directive fixture"
+
+      - name: fold-swallow check must pass on the good fixture
+        run: |
+          set -euo pipefail
+          python3 bin/check_fold_swallowed.py tests/fixtures/good_blank_line_separated.yaml
+          echo "OK: correctly passed the blank-line-separated fixture"
+
+      - run: echo "SELF-TEST-COMPLETE"

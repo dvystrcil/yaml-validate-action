@@ -1,0 +1,16 @@
+# Default yamllint config for yaml-validate-action, tuned for Kubernetes
+# manifests. Relaxes rules that fire constantly on ordinary multi-document
+# K8s YAML for no real benefit; keeps the ones that catch genuine mistakes
+# (duplicate keys, bad indentation, trailing whitespace, tab characters).
+extends: default
+
+rules:
+  document-start: disable # multi-doc `---`-separated manifests are the norm
+  line-length: disable # long image refs, URLs, and annotations are normal
+  truthy:
+    check-keys: false # `on:` in GitHub Actions workflows is not a K8s file
+  comments:
+    min-spaces-from-content: 1
+  comments-indentation: disable # folded/literal block scalars indent oddly by design
+  braces:
+    max-spaces-inside: 1 # `{{ .foo }}`-style Helm/n8n templating

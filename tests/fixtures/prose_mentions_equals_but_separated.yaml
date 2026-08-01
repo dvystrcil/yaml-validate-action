@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: x
+data:
+  config.ini: >
+    # example: set port=8080 in your shell before running
+    # see https://example.com/page?x=1 for more info
+    # note: config.trustedReverseProxy=true is the old default
+
+    port=8080

@@ -1,0 +1,68 @@
+name: yaml-validate
+description: >
+  Two PR-time YAML checks: (1) standard yamllint syntax/style linting,
+  and (2) a homelab-specific check for folded (`>`) block-scalar content
+  silently swallowed into a preceding comment -- a bug class ordinary
+  YAML parsing and yamllint both miss entirely, since the resulting file
+  is syntactically valid the whole time. See README for the incident
+  (dvystrcil/homelab#820) this was built from.
+
+inputs:
+  path:
+    description: >
+      Glob pattern (passed to `find`) of YAML files to check. Default
+      scans the whole checked-out repo.
+    default: "**/*.yaml **/*.yml"
+  yamllint-config:
+    description: >
+      Path to a yamllint config file. Defaults to this action's own
+      relaxed config (tuned for Kubernetes manifests -- no document-start
+      requirement, generous line length). Point at your own repo's
+      `.yamllint` to override.
+    default: ""
+  skip-yamllint:
+    description: Skip the yamllint step, run only the fold-swallow check.
+    default: "false"
+  skip-fold-check:
+    description: Skip the fold-swallow check, run only yamllint.
+    default: "false"
+
+runs:
+  using: composite
+  steps:
+    - name: Resolve file list
+      id: files
+      shell: bash
+      run: |
+        set -euo pipefail
+        list=""
+        for pattern in ${{ inputs.path }}; do
+          found=$(find . -path "./.git" -prune -o -name "$(basename "$pattern")" -print 2>/dev/null || true)
+          list="$list
+        $found"
+        done
+        echo "$list" | grep -v '^\s*$' | sort -u > /tmp/yaml-validate-files.txt
+        count=$(wc -l < /tmp/yaml-validate-files.txt)
+        echo "Found $count YAML file(s) to check"
+        echo "count=$count" >> "$GITHUB_OUTPUT"
+
+    - name: yamllint
+      if: inputs.skip-yamllint != 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+        pip install --quiet yamllint
+        cfg="${{ inputs.yamllint-config }}"
+        if [ -z "$cfg" ]; then
+          cfg="${{ github.action_path }}/.yamllint-default.yaml"
+        fi
+        xargs -a /tmp/yaml-validate-files.txt yamllint -c "$cfg"
+        echo "YAMLLINT-COMPLETE"
+
+    - name: Fold-swallow check
+      if: inputs.skip-fold-check != 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+        xargs -a /tmp/yaml-validate-files.txt python3 "${{ github.action_path }}/bin/check_fold_swallowed.py"
+        echo "FOLD-CHECK-COMPLETE"

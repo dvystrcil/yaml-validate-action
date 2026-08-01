@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: x
+data:
+  config.ini: >
+    [Network]
+
+    # homelab#820: blanket true trusts the leftmost X-Forwarded-For
+    # unconditionally, which express-rate-limit refuses as unsafe
+
+    trustedReverseProxy=uniquelocal
