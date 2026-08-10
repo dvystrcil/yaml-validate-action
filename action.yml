@@ -51,12 +51,27 @@ runs:
       shell: bash
       run: |
         set -euo pipefail
-        pip install --quiet yamllint
+        # Do NOT `pip install` into the system interpreter. GitHub's
+        # ubuntu-latest happens to put a hostedtoolcache Python first on
+        # PATH, which is not PEP 668 marked, so a bare `pip install`
+        # works there -- but on any Debian/Ubuntu system Python (notably
+        # ghcr.io/catthehacker/ubuntu:act-latest, i.e. every local `act`
+        # run) the same line dies with `externally-managed-environment`.
+        # That made `act` useless against every repo consuming this
+        # action. A venv behaves identically in both places and never
+        # mutates system site-packages.
+        if command -v yamllint >/dev/null 2>&1; then
+          YAMLLINT=yamllint
+        else
+          python3 -m venv /tmp/yaml-validate-venv
+          /tmp/yaml-validate-venv/bin/pip install --quiet yamllint
+          YAMLLINT=/tmp/yaml-validate-venv/bin/yamllint
+        fi
         cfg="${{ inputs.yamllint-config }}"
         if [ -z "$cfg" ]; then
           cfg="${{ github.action_path }}/.yamllint-default.yaml"
         fi
-        xargs -a /tmp/yaml-validate-files.txt yamllint -c "$cfg"
+        xargs -a /tmp/yaml-validate-files.txt "$YAMLLINT" -c "$cfg"
         echo "YAMLLINT-COMPLETE"
 
     - name: Fold-swallow check
