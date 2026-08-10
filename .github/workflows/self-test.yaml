@@ -29,11 +29,19 @@ jobs:
       - name: yamllint against this repo's own fixtures + config
         run: |
           set -euo pipefail
-          pip install --quiet yamllint
+          # venv, not a bare `pip install` -- see the same note in action.yml:
+          # a system-Python install is PEP 668 blocked under `act`.
+          if command -v yamllint >/dev/null 2>&1; then
+            YAMLLINT=yamllint
+          else
+            python3 -m venv /tmp/self-test-venv
+            /tmp/self-test-venv/bin/pip install --quiet yamllint
+            YAMLLINT=/tmp/self-test-venv/bin/yamllint
+          fi
           # good.yaml fixtures must yamllint-clean; bad_swallowed_directive.yaml
           # is deliberately a bit odd-shaped (single-key ConfigMap test fixture)
           # so only assert against the two guaranteed-clean ones.
-          yamllint -c .yamllint-default.yaml \
+          "$YAMLLINT" -c .yamllint-default.yaml \
             tests/fixtures/good_blank_line_separated.yaml \
             tests/fixtures/literal_scalar_unaffected.yaml
           echo "OK: yamllint step runs clean on known-good fixtures"
