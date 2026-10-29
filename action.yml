@@ -10,8 +10,11 @@ description: >
 inputs:
   path:
     description: >
-      Glob pattern (passed to `find`) of YAML files to check. Default
-      scans the whole checked-out repo.
+      Space-separated glob patterns of YAML files to check, matched by git
+      against the files it tracks (`**` spans directories, including the
+      root; a directory part such as `charts/**/*.yaml` is honored).
+      Default: every tracked .yaml/.yml file. Untracked files are never
+      linted, and a pattern list that matches nothing fails the action.
     default: "**/*.yaml **/*.yml"
   yamllint-config:
     description: >
@@ -33,17 +36,33 @@ runs:
     - name: Resolve file list
       id: files
       shell: bash
+      env:
+        PATTERNS: ${{ inputs.path }}
       run: |
         set -euo pipefail
-        list=""
-        for pattern in ${{ inputs.path }}; do
-          found=$(find . -path "./.git" -prune -o -name "$(basename "$pattern")" -print 2>/dev/null || true)
-          list="$list
-        $found"
-        done
-        echo "$list" | grep -v '^\s*$' | sort -u > /tmp/yaml-validate-files.txt
-        count=$(wc -l < /tmp/yaml-validate-files.txt)
-        echo "Found $count YAML file(s) to check"
+        # The list comes from git, not the shell: the patterns arrive through
+        # env (never expanded by bash) and git matches them against the
+        # tracked tree. The shell-glob version depended on the repo's layout
+        # and skipped every root-level file once any subdirectory held YAML,
+        # values.yaml included (dvystrcil/prometheus#66).
+        if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+          echo "::error::yaml-validate needs a git checkout (run actions/checkout first)"
+          exit 1
+        fi
+        set -f
+        read -ra patterns <<< "$PATTERNS"
+        set +f
+        specs=()
+        for p in "${patterns[@]}"; do specs+=(":(glob)$p"); done
+        list="$RUNNER_TEMP/yaml-validate-files.txt"
+        git ls-files -z -- "${specs[@]}" > "$list"
+        count=$(tr -cd '\0' < "$list" | wc -c)
+        total=$(git ls-files -z -- ':(glob)**/*.yaml' ':(glob)**/*.yml' | tr -cd '\0' | wc -c)
+        echo "Linting $count of $total tracked YAML file(s) (patterns: $PATTERNS)"
+        if [ "$count" -eq 0 ]; then
+          echo "::error::no tracked file matches '$PATTERNS'; nothing would be linted"
+          exit 1
+        fi
         echo "count=$count" >> "$GITHUB_OUTPUT"
 
     - name: yamllint
@@ -60,18 +79,25 @@ runs:
         # That made `act` useless against every repo consuming this
         # action. A venv behaves identically in both places and never
         # mutates system site-packages.
-        if command -v yamllint >/dev/null 2>&1; then
-          YAMLLINT=yamllint
-        else
-          python3 -m venv /tmp/yaml-validate-venv
-          /tmp/yaml-validate-venv/bin/pip install --quiet yamllint
-          YAMLLINT=/tmp/yaml-validate-venv/bin/yamllint
+        # Always the pinned version, never whatever is on PATH: the same commit
+        # must get the same verdict on every runner. Bump YAMLLINT_VERSION
+        # deliberately -- a new release can add or tighten rules. Renovate opens
+        # that PR (renovate.json; tests/test_renovate_tracking.py keeps the
+        # annotation below in the exact shape its regex reads).
+        # renovate: datasource=pypi depName=yamllint
+        YAMLLINT_VERSION=1.38.0
+        venv="${RUNNER_TOOL_CACHE:-$RUNNER_TEMP}/yaml-validate-venv-$YAMLLINT_VERSION"
+        if [ "$("$venv/bin/yamllint" --version 2>/dev/null)" != "yamllint $YAMLLINT_VERSION" ]; then
+          rm -rf "$venv"
+          python3 -m venv "$venv"
+          "$venv/bin/pip" install --quiet "yamllint==$YAMLLINT_VERSION"
         fi
+        YAMLLINT="$venv/bin/yamllint"
         cfg="${{ inputs.yamllint-config }}"
         if [ -z "$cfg" ]; then
           cfg="${{ github.action_path }}/.yamllint-default.yaml"
         fi
-        xargs -a /tmp/yaml-validate-files.txt "$YAMLLINT" -c "$cfg"
+        xargs -0 -a "$RUNNER_TEMP/yaml-validate-files.txt" "$YAMLLINT" -c "$cfg"
         echo "YAMLLINT-COMPLETE"
 
     - name: Fold-swallow check
@@ -79,5 +105,5 @@ runs:
       shell: bash
       run: |
         set -euo pipefail
-        xargs -a /tmp/yaml-validate-files.txt python3 "${{ github.action_path }}/bin/check_fold_swallowed.py"
+        xargs -0 -a "$RUNNER_TEMP/yaml-validate-files.txt" python3 "${{ github.action_path }}/bin/check_fold_swallowed.py"
         echo "FOLD-CHECK-COMPLETE"
