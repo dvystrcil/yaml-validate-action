@@ -71,10 +71,17 @@ Inputs:
 
 | Input | Default | Description |
 |---|---|---|
-| `path` | `**/*.yaml **/*.yml` | Glob pattern(s) of files to check |
+| `path` | `**/*.yaml **/*.yml` | Space-separated glob pattern(s), matched by git against tracked files (`**` includes the repo root; `charts/**/*.yaml` keeps its directory). Untracked files are never linted; no match fails the action |
 | `yamllint-config` | *(bundled default)* | Path to your own `.yamllint` to override the relaxed default |
 | `skip-yamllint` | `false` | Run only the fold-swallow check |
 | `skip-fold-check` | `false` | Run only yamllint |
+
+Every run prints `Linting N of M tracked YAML file(s)`, so a file that was
+skipped shows up as a gap rather than a green check. yamllint is pinned
+(`YAMLLINT_VERSION` in `action.yml`) and installed into a venv in the
+runner's tool cache; a yamllint already on the runner is ignored, so the
+same commit gets the same verdict everywhere. Needs a git checkout
+(`actions/checkout`).
 
 ## What this deliberately does NOT do
 
