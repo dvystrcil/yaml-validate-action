@@ -81,7 +81,10 @@ runs:
         # mutates system site-packages.
         # Always the pinned version, never whatever is on PATH: the same commit
         # must get the same verdict on every runner. Bump YAMLLINT_VERSION
-        # deliberately -- a new release can add or tighten rules.
+        # deliberately -- a new release can add or tighten rules. Renovate opens
+        # that PR (renovate.json; tests/test_renovate_tracking.py keeps the
+        # annotation below in the exact shape its regex reads).
+        # renovate: datasource=pypi depName=yamllint
         YAMLLINT_VERSION=1.38.0
         venv="${RUNNER_TOOL_CACHE:-$RUNNER_TEMP}/yaml-validate-venv-$YAMLLINT_VERSION"
         if [ "$("$venv/bin/yamllint" --version 2>/dev/null)" != "yamllint $YAMLLINT_VERSION" ]; then

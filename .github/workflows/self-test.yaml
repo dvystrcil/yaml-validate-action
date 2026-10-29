@@ -26,6 +26,9 @@ jobs:
       - run: |
           python3 -m pip install --quiet pyyaml
           python3 -m unittest tests.test_file_resolution -v
+      # renovate.json's own regex must capture every *_VERSION= pin in
+      # action.yml; a regex that stops matching makes Renovate silent.
+      - run: python3 -m unittest tests.test_renovate_tracking -v
 
   integration-smoke:
     runs-on: ubuntu-latest
