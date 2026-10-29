@@ -36,11 +36,16 @@ runs:
       run: |
         set -euo pipefail
         list=""
+        # noglob: the patterns are for `find`, not the shell. Expanded here,
+        # `**/*.yaml` matched only files in subdirectories, and a root-level
+        # values.yaml was never linted (dvystrcil/prometheus#66).
+        set -f
         for pattern in ${{ inputs.path }}; do
           found=$(find . -path "./.git" -prune -o -name "$(basename "$pattern")" -print 2>/dev/null || true)
           list="$list
         $found"
         done
+        set +f
         echo "$list" | grep -v '^\s*$' | sort -u > /tmp/yaml-validate-files.txt
         count=$(wc -l < /tmp/yaml-validate-files.txt)
         echo "Found $count YAML file(s) to check"

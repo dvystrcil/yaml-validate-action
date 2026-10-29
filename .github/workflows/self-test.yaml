@@ -20,6 +20,12 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - run: python3 -m unittest tests.test_check_fold_swallowed -v
+      # Runs the action's own Resolve/yamllint steps from action.yml against
+      # a root-level values.yaml (dvystrcil/prometheus#66). PyYAML reads
+      # action.yml; the yamllint step installs its own venv as in the action.
+      - run: |
+          python3 -m pip install --quiet pyyaml
+          python3 -m unittest tests.test_file_resolution -v
 
   integration-smoke:
     runs-on: ubuntu-latest
