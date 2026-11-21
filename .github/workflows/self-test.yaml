@@ -18,7 +18,7 @@ jobs:
   unit-tests:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - run: python3 -m unittest tests.test_check_fold_swallowed -v
       # Runs the action's own Resolve/yamllint steps from action.yml against
       # a root-level values.yaml (dvystrcil/prometheus#66). PyYAML reads
@@ -33,7 +33,7 @@ jobs:
   integration-smoke:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: yamllint against this repo's own fixtures + config
         run: |
